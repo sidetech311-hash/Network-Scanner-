@@ -126,7 +126,7 @@ def generate_report(scan_data, output_path="network_scan_report.pdf"):
             service_str = f" {r.get('service', 'unknown')}"
             
             # Truncate version string to prevent horizontal text overflow
-            raw_ver = r.get("parsed_version") or r.get("banner") or "—"
+            raw_ver = r.get("parsed_version") or r.get("banner") or "-"
             raw_ver_cleaned = raw_ver.replace("\r", " ").replace("\n", " ").strip()
             ver_str = f" {raw_ver_cleaned[:65]}..." if len(raw_ver_cleaned) > 65 else f" {raw_ver_cleaned}"
             
@@ -181,7 +181,7 @@ def generate_report(scan_data, output_path="network_scan_report.pdf"):
             pdf.set_text_color(15, 23, 42)
             pdf.cell(4)  # spacer
             pdf.set_font("Helvetica", "B", 10)
-            pdf.cell(0, 6, f"Port {r['port']} — {hints.get('service', 'Service')} Service Configuration", ln=True)
+            pdf.cell(0, 6, f"Port {r['port']} - {hints.get('service', 'Service')} Service Configuration", ln=True)
             
             pdf.set_font("Helvetica", "", 9)
             pdf.set_text_color(71, 85, 105)
