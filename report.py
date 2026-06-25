@@ -213,7 +213,7 @@ def generate_report(scan_data, output_path="network_scan_report.pdf"):
     # Shaded warning block
     pdf.set_fill_color(254, 242, 242)  # light red
     pdf.set_draw_color(252, 165, 165)  # red border
-    pdf.rect(10, pdf.get_y(), 190, 24, "FDF")
+    pdf.rect(10, pdf.get_y(), 190, 24, "FD")
     
     pdf.set_y(pdf.get_y() + 2)
     pdf.set_font("Helvetica", "B", 9)
