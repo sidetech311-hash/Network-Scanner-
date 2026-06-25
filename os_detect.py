@@ -9,11 +9,14 @@ import re
 
 
 def get_ttl(host):
-    """Get the TTL from a ping response (Linux/macOS style)."""
+    """Get the TTL from a ping response (Windows and Linux/macOS compatible)."""
     try:
+        is_windows = platform.system().lower() == "windows"
+        cmd = ["ping", "-n", "1", "-w", "1000", host] if is_windows else ["ping", "-c", "1", "-W", "2", host]
+        
         # Use the system's ping command
         output = subprocess.check_output(
-            ["ping", "-c", "1", "-W", "2", host],
+            cmd,
             stderr=subprocess.STDOUT,
             universal_newlines=True,
         )

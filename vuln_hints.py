@@ -175,6 +175,98 @@ VULN_HINTS = {
 }
 
 
-def get_hint(port):
-    """Return vulnerability hints for a given port, or empty dict."""
-    return VULN_HINTS.get(port, {})
+import re
+
+def parse_version_numbers(version_str):
+    """Extract major, minor, patch numbers from a version string."""
+    match = re.search(r'(\d+)\.(\d+)(?:\.(\d+))?', version_str)
+    if match:
+        major = int(match.group(1))
+        minor = int(match.group(2))
+        patch = int(match.group(3)) if match.group(3) else 0
+        return (major, minor, patch)
+    return None
+
+
+def check_version_vulns(port, service, parsed_version):
+    """Check parsed version string against known outdated or vulnerable versions."""
+    if not parsed_version:
+        return []
+        
+    extra_hints = []
+    
+    # 1. SSH / OpenSSH
+    if "ssh" in service.lower() or port == 22:
+        if "openssh" in parsed_version.lower():
+            nums = parse_version_numbers(parsed_version)
+            if nums:
+                major, minor, patch = nums
+                # regreSSHion (CVE-2024-6387) affects OpenSSH < 4.4p1 and 8.5p1 <= OpenSSH < 9.8p1
+                if (major < 9) or (major == 9 and minor < 8):
+                    extra_hints.append(
+                        "CRITICAL: Outdated OpenSSH version. May be vulnerable to RegreSSHion RCE (CVE-2024-6387). "
+                        "Upgrade OpenSSH to 9.8p1 or newer immediately."
+                    )
+                    
+    # 2. Apache
+    elif "apache" in parsed_version.lower() or port in (80, 443, 8080):
+        if "apache" in parsed_version.lower():
+            nums = parse_version_numbers(parsed_version)
+            if nums:
+                major, minor, patch = nums
+                if major < 2 or (major == 2 and minor < 4) or (major == 2 and minor == 4 and patch < 59):
+                    extra_hints.append(
+                        "HIGH: Outdated Apache HTTP Server version. "
+                        "May be vulnerable to HTTP/2 DoS (CVE-2024-27316) and multiple CVEs. Upgrade to 2.4.59 or later."
+                    )
+                    
+    # 3. Nginx
+    elif "nginx" in parsed_version.lower() or port in (80, 443, 8080):
+        if "nginx" in parsed_version.lower():
+            nums = parse_version_numbers(parsed_version)
+            if nums:
+                major, minor, patch = nums
+                if major < 1 or (major == 1 and minor < 26):
+                    extra_hints.append(
+                        "MEDIUM: Legacy Nginx version detected. Upgrade to Nginx 1.26+ stable for security support."
+                    )
+                    
+    return extra_hints
+
+
+def get_hint(port, parsed_version=None):
+    """Return vulnerability hints for a given port, including version-based alerts."""
+    base_hint = VULN_HINTS.get(port, {})
+    if not base_hint:
+        if parsed_version:
+            from service_detect import detect_service
+            service_name = detect_service(port)
+            base_hint = {
+                "service": service_name,
+                "risk": "Low",
+                "hints": []
+            }
+        else:
+            return {}
+            
+    # Deep copy base hint
+    result_hint = {
+        "service": base_hint.get("service", "Unknown"),
+        "risk": base_hint.get("risk", "Low"),
+        "hints": list(base_hint.get("hints", []))
+    }
+    
+    if parsed_version:
+        extra = check_version_vulns(port, result_hint["service"], parsed_version)
+        if extra:
+            result_hint["hints"].extend(extra)
+            # Upgrade risk level
+            if any("CRITICAL" in h for h in extra):
+                result_hint["risk"] = "Critical"
+            elif any("HIGH" in h for h in extra):
+                result_hint["risk"] = "High"
+            elif any("MEDIUM" in h for h in extra) and result_hint["risk"] == "Low":
+                result_hint["risk"] = "Medium"
+                
+    return result_hint
+

@@ -1,10 +1,8 @@
-"""
-Subnet discovery - finds live hosts in a /24 network.
-"""
-
 import socket
 import concurrent.futures
 import ipaddress
+import subprocess
+import platform
 
 
 def expand_cidr(target):
@@ -36,7 +34,7 @@ def expand_cidr(target):
 
 
 def ping_host(host, timeout=0.5):
-    """Check if a host responds to a few common TCP ports (80, 443, 22, 445, 3389)."""
+    """Check if a host responds to a few common TCP ports (80, 443, 22, 445, 3389) or ICMP ping."""
     common_ports = [80, 443, 22, 445, 3389]
     for port in common_ports:
         try:
@@ -48,6 +46,17 @@ def ping_host(host, timeout=0.5):
                 return host
         except Exception:
             pass
+            
+    # Fallback to ICMP ping
+    try:
+        is_windows = platform.system().lower() == "windows"
+        cmd = ["ping", "-n", "1", "-w", "300", host] if is_windows else ["ping", "-c", "1", "-W", "1", host]
+        result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=1.0)
+        if result.returncode == 0:
+            return host
+    except Exception:
+        pass
+        
     return None
 
 
