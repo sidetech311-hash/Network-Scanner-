@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env/
+
+# IDEs
+.idea/
+.vscode/
+
+# Project specific
+scan_history.csv
+*.pdf
+*.json
+*.csv
+!requirements.txt
