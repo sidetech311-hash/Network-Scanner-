@@ -184,14 +184,19 @@ def generate_report(scan_data, output_path="network_scan_report.pdf"):
             pdf.cell(0, 6, f"Port {r['port']} - {hints.get('service', 'Service')} Service Configuration", ln=True)
             
             pdf.set_font("Helvetica", "", 9)
-            pdf.set_text_color(71, 85, 105)
             pdf.ln(1)
             for hint in hints.get("hints", []):
-                # Custom bullet character
+                # Indent wrapped text using temporary left margin
+                pdf.set_left_margin(18)
+                pdf.set_x(10)
                 pdf.set_text_color(rc, gc, bc)
                 pdf.cell(8, 5, "  * ", ln=False)
+                
                 pdf.set_text_color(71, 85, 105)
-                pdf.multi_cell(0, 5, hint)
+                pdf.multi_cell(182, 5, hint)
+            
+            # Restore left margin
+            pdf.set_left_margin(10)
             pdf.ln(2)
             
     if not has_hints:
