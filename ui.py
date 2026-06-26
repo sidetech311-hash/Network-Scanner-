@@ -158,8 +158,16 @@ if "last_result" not in st.session_state:
     st.session_state["last_result"] = None
 
 # Configure Tabs
-tabs_list = ["🎯 Single Target Scan", "🌐 Subnet Discovery", "📊 History & Analytics", "⏰ Scan Scheduler", "🔑 Credentialed SSH Audit"]
-tab1, tab2, tab3, tab4, tab5 = st.tabs(tabs_list)
+tabs_list = [
+    "🎯 Single Target Scan", 
+    "🌐 Subnet Discovery", 
+    "📊 History & Analytics", 
+    "⏰ Scan Scheduler", 
+    "🔑 Credentialed SSH Audit", 
+    "🔒 SSL/TLS Audit", 
+    "📂 Directory Buster"
+]
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(tabs_list)
 
 with tab1:
     with st.container():
@@ -243,6 +251,22 @@ with tab1:
                         }
                     )
                 st.dataframe(rows, use_container_width=True, hide_index=True)
+
+                # Display CVE findings if any
+                cve_rows = []
+                for r in result["results"]:
+                    for cve in r.get("cves", []):
+                        cve_rows.append({
+                            "Port": r["port"],
+                            "Service": r["service"],
+                            "CVE ID": cve["id"],
+                            "Severity": cve["severity"],
+                            "CVSS Score": cve["cvss"],
+                            "Vulnerability Summary": cve["summary"]
+                        })
+                if cve_rows:
+                    st.subheader("⚠️ Detected CVE Vulnerabilities")
+                    st.dataframe(cve_rows, use_container_width=True, hide_index=True)
 
                 if include_hints:
                     st.subheader("Security Remediation Hints")
@@ -406,6 +430,13 @@ with tab2:
             [{"#": i + 1, "IP Address": item["ip"], "Hostname": item["hostname"]} for i, item in enumerate(live)],
             use_container_width=True,
         )
+
+        # Draw Subnet Topology Graph
+        st.subheader("🌐 Network Topology Visualizer")
+        from subnet_map import draw_topology_map
+        with st.spinner("Generating network topology map..."):
+            fig = draw_topology_map(live, subnet_target)
+            st.pyplot(fig)
 
         # Quick select target
         selected_ip = st.selectbox(
@@ -750,3 +781,102 @@ with tab5:
                         st.info("No packages query results (requires dpkg or rpm on target).")
         else:
             st.info("Configure credentials and run the SSH compliance audit to analyze the target host internally.")
+
+with tab6:
+    st.subheader("🔒 SSL/TLS Security Auditor")
+    st.write("Perform security audits on HTTPS (SSL/TLS) endpoints to verify certificates, key strengths, and deprecated protocols.")
+    
+    col_ssl1, col_ssl2 = st.columns([3, 1])
+    with col_ssl1:
+        ssl_host = st.text_input("SSL Host (domain or IP)", placeholder="e.g. google.com", key="ssl_host_input")
+    with col_ssl2:
+        ssl_port = st.number_input("SSL Port", 1, 65535, 443, key="ssl_port_input")
+        
+    if st.button("🔒 Run SSL Audit"):
+        if not ssl_host:
+            st.error("Please enter an SSL host.")
+        else:
+            with st.spinner("Auditing TLS/SSL configurations..."):
+                from ssl_auditor import audit_ssl_tls
+                res = audit_ssl_tls(ssl_host, ssl_port)
+                if not res.get("connected"):
+                    st.error(f"Failed to connect: {res.get('error', 'Unknown error')}")
+                else:
+                    st.success("Connection established successfully!")
+                    
+                    # Metrics
+                    c1, c2, c3 = st.columns(3)
+                    cert = res.get("cert_info")
+                    if cert:
+                        c1.metric("Key Algorithm", f"{cert.get('key_algo')} ({cert.get('key_size')} bits)")
+                        c2.metric("Days Remaining", cert.get("days_left"))
+                        c3.metric("Expired", "Yes" if cert.get("expired") else "No")
+                        
+                        st.subheader("Certificate Information")
+                        st.write(f"**Subject:** {cert.get('subject')}")
+                        st.write(f"**Issuer:** {cert.get('issuer')}")
+                        st.write(f"**Validity Period:** {cert.get('not_before')} to {cert.get('not_after')}")
+                        st.write(f"**Signature Algorithm:** {cert.get('signature_algorithm')}")
+                        if cert.get("dns_names"):
+                            st.write(f"**Subject Alternative Names (SAN):** {', '.join(cert.get('dns_names'))}")
+                    
+                    st.subheader("Supported Handshake Protocols")
+                    st.write(", ".join(res.get("supported_protocols", [])))
+                    
+                    st.subheader("Security Warnings")
+                    if res.get("warnings"):
+                        for warning in res["warnings"]:
+                            st.error(f"⚠️ {warning}")
+                    else:
+                        st.success("No critical SSL/TLS configuration vulnerabilities identified.")
+
+with tab7:
+    st.subheader("📂 Web Directory Buster")
+    st.write("Audits web targets for exposed folders (like `.git/`), backup archives, administrative panels, and environment variables.")
+    
+    col_db1, col_db2, col_db3 = st.columns([3, 1, 1])
+    with col_db1:
+        db_host = st.text_input("Target Host (IP or domain)", placeholder="e.g. 127.0.0.1", key="db_host_input")
+    with col_db2:
+        db_port = st.number_input("Port", 1, 65535, 80, key="db_port_input")
+    with col_db3:
+        db_proto = st.selectbox("Protocol", ["http", "https"], key="db_proto_select")
+        
+    col_db4, col_db5 = st.columns(2)
+    with col_db4:
+        db_threads = st.slider("Concurrency / Threads", 5, 50, 20, key="db_threads_slider")
+    with col_db5:
+        db_timeout = st.slider("Timeout (seconds)", 0.2, 5.0, 1.0, 0.1, key="db_timeout_slider")
+        
+    if st.button("📂 Start Directory Buster"):
+        if not db_host:
+            st.error("Please enter a target host.")
+        else:
+            db_progress = st.progress(0)
+            db_status = st.empty()
+            
+            def update_db_progress(scanned, total):
+                db_progress.progress(scanned / total)
+                db_status.text(f"Probing path {scanned}/{total}...")
+                
+            with st.spinner("Busting directories..."):
+                from dir_buster import bust_directory
+                found = bust_directory(db_host, db_port, db_proto, int(db_threads), db_timeout, update_db_progress)
+                
+            db_progress.empty()
+            db_status.empty()
+            
+            if found:
+                st.warning(f"Exposures Found: {len(found)} path(s) detected!")
+                rows = []
+                for f in found:
+                    rows.append({
+                        "Path": f["path"],
+                        "URL": f["url"],
+                        "Status Code": f["status"],
+                        "Status Description": f["status_desc"],
+                        "Type / Exposure": f["name"]
+                    })
+                st.dataframe(rows, use_container_width=True, hide_index=True)
+            else:
+                st.success("No exposed directories or critical files were found in the audit.")

@@ -152,9 +152,15 @@ class NetworkScanner:
                 banner = grab_banner(ip, result["port"], self.timeout)
                 result["banner"] = banner
                 result["parsed_version"] = parse_version(banner, result["port"]) if banner else None
+                if banner:
+                    from cve_mapper import lookup_cves
+                    result["cves"] = lookup_cves(banner)
+                else:
+                    result["cves"] = []
             else:
                 result["banner"] = None
                 result["parsed_version"] = None
+                result["cves"] = []
             if self.include_hints:
                 result["hints"] = get_hint(result["port"], result.get("parsed_version"))
             else:

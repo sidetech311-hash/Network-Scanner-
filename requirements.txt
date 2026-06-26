@@ -2,3 +2,6 @@ streamlit
 fpdf2
 pandas
 paramiko
+matplotlib
+networkx
+cryptography

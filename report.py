@@ -141,6 +141,66 @@ def generate_report(scan_data, output_path="network_scan_report.pdf"):
         pdf.cell(0, 8, "No open ports were discovered during the scan.", ln=True)
     pdf.ln(6)
 
+    # 3.5 Detected CVE Vulnerabilities
+    cves_found = []
+    if scan_data.get("results"):
+        for r in scan_data["results"]:
+            for cve in r.get("cves", []):
+                cves_found.append({
+                    "port": r["port"],
+                    "service": r["service"],
+                    "id": cve["id"],
+                    "severity": cve["severity"],
+                    "cvss": cve["cvss"],
+                    "summary": cve["summary"]
+                })
+                
+    if cves_found:
+        if pdf.get_y() > 220:
+            pdf.add_page()
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.cell(0, 8, "Detected CVE Vulnerabilities", ln=True)
+        pdf.set_line_width(0.3)
+        pdf.set_draw_color(30, 58, 138)
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(3)
+        
+        # Header
+        pdf.set_fill_color(30, 58, 138)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_draw_color(30, 58, 138)
+        pdf.set_font("Helvetica", "B", 8)
+        cve_widths = [15, 20, 25, 12, 118]
+        cve_headers = ["Port", "Service", "CVE ID", "CVSS", "Vulnerability Summary"]
+        for i, h in enumerate(cve_headers):
+            pdf.cell(cve_widths[i], 7, f" {h}", border=1, fill=True)
+        pdf.ln()
+        
+        pdf.set_text_color(15, 23, 42)
+        pdf.set_draw_color(226, 232, 240)
+        pdf.set_font("Helvetica", "", 7.5)
+        
+        cve_fill = False
+        for cve in cves_found:
+            pdf.set_fill_color(248, 250, 252) if cve_fill else pdf.set_fill_color(255, 255, 255)
+            
+            p_str = f" {cve['port']}"
+            s_str = f" {cve['service']}"
+            id_str = f" {cve['id']}"
+            cvss_str = f" {cve['cvss']:.1f}" if cve['cvss'] else " —"
+            
+            summary_clean = cve['summary'].replace("\r", " ").replace("\n", " ").strip()
+            summary_str = f" {summary_clean[:80]}..." if len(summary_clean) > 80 else f" {summary_clean}"
+            
+            pdf.cell(cve_widths[0], 6, p_str, border=1, fill=True)
+            pdf.cell(cve_widths[1], 6, s_str, border=1, fill=True)
+            pdf.cell(cve_widths[2], 6, id_str, border=1, fill=True)
+            pdf.cell(cve_widths[3], 6, cvss_str, border=1, fill=True)
+            pdf.cell(cve_widths[4], 6, summary_str, border=1, fill=True)
+            pdf.ln()
+            cve_fill = not cve_fill
+        pdf.ln(6)
+
     # 4. Security Risk Analysis & Hints
     if pdf.get_y() > 230:
         pdf.add_page()
