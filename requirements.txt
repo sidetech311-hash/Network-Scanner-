@@ -5,3 +5,6 @@ paramiko
 matplotlib
 networkx
 cryptography
+fastapi
+uvicorn
+requests
